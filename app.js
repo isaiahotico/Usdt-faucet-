@@ -1,185 +1,249 @@
-// --- CONFIGURATION ---
+
+// --- Configuration ---
 const firebaseConfig = {
-    apiKey: "AIzaSyBwpa8mA83JAv2A2Dj0rh5VHwodyv5N3dg",
-    authDomain: "freegcash-ads.firebaseapp.com",
-    databaseURL: "https://freegcash-ads-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "freegcash-ads",
-    storageBucket: "freegcash-ads.firebasestorage.app",
-    messagingSenderId: "608086825364",
-    appId: "1:608086825364:web:3a8e628d231b52c6171781"
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "SENDER_ID",
+    appId: "APP_ID"
 };
 
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// FaucetPay Config
-const FAUCETPAY_API_KEY = 'a92bb3fc17bf8476f2705f613ffc976dff7d8ed8f977c1e80294beb4f131a7f3';
-const REWARD_AMOUNT = 0.0012;
-const COOLDOWN_MS = 3 * 60 * 1000; // 3 minutes
+// --- State Management ---
+let currentUser = null;
+let lastClaimTime = 0;
+let cooldownSeconds = 180; // 3 minutes
+let timerInterval = null;
 
-// DOM Elements
+// --- DOM Elements ---
 const inputSection = document.getElementById('input-section');
 const claimSection = document.getElementById('claim-section');
+const userEmailInput = document.getElementById('user-email');
 const statusBar = document.getElementById('status-bar');
 const statusText = document.getElementById('status-text');
-const watchBtn = document.getElementById('watch-ad-btn');
 const cooldownDisplay = document.getElementById('cooldown-display');
 const timerDisplay = document.getElementById('timer');
-const dailyList = document.getElementById('daily-leaderboard');
-const weeklyList = document.getElementById('weekly-leaderboard');
+const watchAdBtn = document.getElementById('watch-ad-btn');
+const userBalanceEl = document.getElementById('user-balance');
+const leaderboardDaily = document.getElementById('daily-leaderboard');
+const leaderboardWeekly = document.getElementById('weekly-leaderboard');
 
-let currentUserEmail = null;
-let cooldownInterval = null;
-
-// --- INITIALIZATION ---
-window.onload = () => {
+// --- Initialization ---
+document.addEventListener('DOMContentLoaded', () => {
     loadLeaderboards();
-    checkExistingSession();
-    
-    // Show Initial Interstitial Ad (as per requirement: auto show on open)
-    setTimeout(() => {
-        if (typeof show_10555663 === 'function') {
-            show_10555663({
-                type: 'inApp',
-                inAppSettings: {
-                    frequency: 1, // Show once on load
-                    capping: 0.1,
-                    interval: 30,
-                    timeout: 5,
-                    everyPage: false
-                }
-            });
-        }
-    }, 1000);
-};
+    // Check if user is already logged in (session storage)
+    const savedEmail = sessionStorage.getItem('faucet_email');
+    if (savedEmail) {
+        userEmailInput.value = savedEmail;
+        validateUser(true);
+    }
+});
 
-// --- CORE FUNCTIONS ---
+// --- Core Functions ---
 
-function showStatus(msg) {
+function showStatus(msg, isError = false) {
+    statusText.innerHTML = <i class="fas ${isError ? 'fa-exclamation-circle' : 'fa-sync fa-spin'} mr-2"></i>${msg};
+    statusBar.className = rounded-xl p-3 text-center shadow-sm transition-all duration-300 ${isError ? 'bg-red-50 border border-red-100 text-red-600' : 'bg-blue-50 border border-blue-100 text-blue-600'};
     statusBar.classList.remove('hidden');
-    statusText.textContent = msg;
 }
 
 function hideStatus() {
     statusBar.classList.add('hidden');
 }
 
-function validateUser() {
-    const email = document.getElementById('user-email').value.trim();
+async function validateUser(isSession = false) {
+    const email = userEmailInput.value.trim().toLowerCase();
     if (!email || !email.includes('@')) {
-        alert('Please enter a valid email address.');
+        showStatus("Please enter a valid email.", true);
         return;
     }
-  watchBtn.innerHTML = '<i class="fas fa-check"></i> Claimed!';
-        setTimeout(() => {
-            watchBtn.innerHTML = originalBtnContent;
-        }, 2000);
 
-    } catch (error) {
-        console.error("Ad or Payment Error:", error);
-        alert("Ad was skipped or payment failed. Please try again.");
-        enableClaimButton();
-    }
-}
-
-async function processPayment(email) {
-    showStatus('Sending 0.0012 USDT...');
-    
+    showStatus("Verifying wallet...");
     try {
-        const response = await fetch(https://faucetpay.io/api/v1/send_to, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                api_key: FAUCETPAY_API_KEY,
-                currency: 'USDT',
-                amount: REWARD_AMOUNT,
-                recipient: email
-            })
-        });
+        const userRef = db.ref(users/${email});
+        const snapshot = await userRef.once('value');
+        const userData = snapshot.val();
 
-        const data = await response.json();
+        if (userData) {
+            // Existing User
+            currentUser = { email, ...userData };
+            handleLoginSuccess();
+            if (!isSession) sessionStorage.setItem('faucet_email', email);
+        } else {
+            // New User
+            showStatus("Creating new profile...");
+            await userRef.set({
+                email: email,
+                balance: 0,
+                lastClaim: Date.now(),
+                joinedAt: Date.now()
+            });
+            currentUser = { email, balance: 0, lastClaim: Date.now() };
+            handleLoginSuccess();
 
-        if (data.error) {
-            throw new Error(data.error);
+sessionStorage.setItem('faucet_email', email);
         }
-
-        // Log to Firebase Leaderboard
-        logToLeaderboard(email);
-        
-        hideStatus();
-        return true;
-
-    } catch (err) {
-        console.error("API Error:", err);
-        hideStatus();
-        throw err;
+    } catch (error) {
+        console.error(error);
+        showStatus("Connection error. Please try again.", true);
     }
 }
 
-// --- LEADERBOARD LOGIC ---
-
-function logToLeaderboard(email) {
-    const now = Date.now();
-    const todayKey = daily_${new Date(now).toISOString().split('T')[0]};
-    const weekKey = weekly_${getWeekNumber(new Date(now))};
-
-    // Increment daily
-    db.ref(leaderboard/${todayKey}/${email}).set(firebase.database.ServerValue.increment(1));
+function handleLoginSuccess() {
+    hideStatus();
+    inputSection.classList.add('hidden');
+    claimSection.classList.remove('hidden');
+    document.getElementById('user-badge').classList.remove('hidden');
     
-    // Increment weekly
-    db.ref(leaderboard/${weekKey}/${email}).set(firebase.database.ServerValue.increment(1));
+    updateBalance();
+    checkCooldown();
 }
 
-function getWeekNumber(d) {
-    d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
-    var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
-    var weekNo = Math.ceil((((d - yearStart) / 86400000) + 1)/7);
-    return ${d.getUTCFullYear}-W${weekNo};
+function logout() {
+    sessionStorage.removeItem('faucet_email');
+    location.reload();
 }
 
-function loadLeaderboards() {
-    const currentWeek = getWeekNumber(new Date());
-    const today = new Date().toISOString().split('T')[0];
-
-    // Load Daily
-    db.ref(leaderboard/daily_${today}).on('value', (snapshot) => {
-        const data = snapshot.val();
-        renderLeaderboard(dailyList, data, 'Daily');
-    });
-
-    // Load Weekly
-    db.ref(leaderboard/weekly_${currentWeek}).on('value', (snapshot) => {
-        const data = snapshot.val();
-        renderLeaderboard(weeklyList, data, 'Weekly');
-    });
+function updateBalance() {
+    if (!currentUser) return;
+    userBalanceEl.textContent = ${currentUser.balance.toFixed(6)} USDT;
 }
 
-function renderLeaderboard(container, data, type) {
-    if (!data) {
-        container.innerHTML = <li class="text-gray-400 text-center">No ${type} activity</li>;
+function checkCooldown() {
+    const now = Date.now();
+    const diff = now - currentUser.lastClaim;
+    
+    if (diff < cooldownSeconds * 1000) {
+        const remaining = cooldownSeconds - Math.floor(diff / 1000);
+        startTimer(remaining);
+        watchAdBtn.disabled = true;
+        watchAdBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    } else {
+        startTimer(0);
+        watchAdBtn.disabled = false;
+        watchAdBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+}
+
+function startTimer(seconds) {
+    clearInterval(timerInterval);
+    let timeLeft = seconds;
+    
+    const formatTime = (t) => {
+        const m = Math.floor(t / 60).toString().padStart(2, '0');
+        const s = (t % 60).toString().padStart(2, '0');
+        return ${m}:${s};
+    };
+
+    timerDisplay.textContent = formatTime(timeLeft);
+    cooldownDisplay.classList.remove('hidden');
+
+    if (timeLeft <= 0) {
+        timerDisplay.textContent = "Ready!";
         return;
     }
 
-    // Convert to array and sort by value descending
-    const users = Object.entries(data)
-        .map(([email, count]) => ({ email, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 5); // Top 5
+    timerInterval = setInterval(() => {
+        timeLeft--;
+        timerDisplay.textContent = formatTime(timeLeft);
+        if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            checkCooldown(); // Re-enable button
+        }
+    }, 1000);
+}
 
-    if (users.length === 0) {
-        container.innerHTML = <li class="text-gray-400 text-center">No ${type} activity</li>;
+async function watchAdAndClaim() {
+    if (watchAdBtn.disabled) return;
+    
+    showStatus("Waiting for ad completion...");
+    watchAdBtn.disabled = true;
+    
+    // Simulate ad watching or use actual SDK callback
+    // For this example, we assume the SDK triggers a callback or we wait a few seconds
+    // In a real scenario, you'd listen to the ad SDK's 'ad_complete' event
+    
+    setTimeout(async () => {
+        try {
+            const now = Date.now();
+            const rewardAmount = 0.0012;
+            
+            // Update Firebase
+            await db.ref(users/${currentUser.email}).update({
+                balance: firebase.database.ServerValue.increment(rewardAmount),
+                lastClaim: now
+            });
+            
+            // Update local state
+            currentUser.balance += rewardAmount;
+            updateBalance();
+            showStatus("Reward claimed successfully!");
+            
+            setTimeout(() => {
+                hideStatus();
+                checkCooldown();
+            }, 2000);
+            
+        } catch (error) {
+            showStatus("Claim failed. Please retry.", true);
+            watchAdBtn.disabled = false;
+        }
+    }, 2000); // Simulated ad delay
+}
+
+// --- Leaderboard Logic ---
+async function loadLeaderboards() {
+    try {
+        const dailySnap = await db.ref('leaderboard/daily').once('value');
+        const weeklySnap = await db.ref('leaderboard/weekly').once('value');
+        
+        renderLeaderboard(dailySnap, leaderboardDaily);
+        renderLeaderboard(weeklySnap, leaderboardWeekly);
+    } catch (e) {
+        console.error("Leaderboard load error", e);
+    }
+}
+
+function renderLeaderboard(snapshot, container) {
+    container.innerHTML = '';
+    if (!snapshot.exists()) {
+        container.innerHTML = '<li class="text-sm text-gray-400">No data yet</li>';
         return;
     }
+    
+    const users = [];
+    snapshot.forEach(child => {
+        users.push({ email: child.key, score: child.val() });
+    });
+    
+    // Sort by score descending
 
-    container.innerHTML = users.map((u, index) => `
-        <li class="flex justify-between items-center p-2 bg-gray-50 rounded hover:bg-gray-100 transition">
-            <span class="truncate w-24 text-gray-700">${index + 1}. ${u.email}</span>
-            <span class="font-bold text-blue-600">${u.count} claims</span>
-        </li>
-    `).join('');
+users.sort((a, b) => b.score - a.score);
+    
+    // Take top 3
+    users.slice(0, 3).forEach((user, index) => {
+        const li = document.createElement('li');
+        li.className = "flex justify-between items-center text-sm bg-white/50 p-2 rounded-lg border border-white/30";
+        
+        let icon = "";
+        if (index === 0) icon = '<i class="fas fa-trophy text-yellow-500"></i>';
+        else if (index === 1) icon = '<i class="fas fa-medal text-gray-400"></i>';
+        else if (index === 2) icon = '<i class="fas fa-medal text-orange-400"></i>';
+        
+        li.innerHTML = `
+            <div class="flex items-center gap-2 truncate">
+                ${icon}
+                <span class="truncate">${user.email.split('@')[0]}</span>
+            </div>
+            <span class="font-bold text-indigo-600">${user.score.toFixed(4)}</span>
+        `;
+        container.appendChild(li);
+    });
 }
 ```
+</details>
