@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Paperhouse Inc. — USDT Faucet</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: "#eff6ff",
+              500: "#2563eb",
+              600: "#1d4ed8",
+              700: "#1e40af"
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <script src="https://kit.fontawesome.com/a2e0e6ad45.js" crossorigin="anonymous"></script>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+
+  <!-- Ad SDK zones -->
+  <script
+    src="//libtl.com/sdk.js"
+    data-zone="10337853"
+    data-sdk="show_10337853">
+  </script>
+
+  <script
+    src="//libtl.com/sdk.js"
+    data-zone="10337795"
+    data-sdk="show_10337795">
+  </script>
+
+  <script
+    src="//libtl.com/sdk.js"
+    data-zone="10555663"
+    data-sdk="show_10555663">
+  </script>
+
+  <style>
+    body {
+      background:
+        radial-gradient(circle at top left, rgba(37, 99, 235, .12), transparent 32rem),
+        #f8fafc;
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, .88);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(226, 232, 240, .9);
+    }
+
+    .progress-bar {
+      transition: width .35s ease;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen text-slate-800">
+
+  <section id="paperhouseApp" class="max-w-7xl mx-auto px-4 py-5 sm:px-6 lg:px-8">
+
+    <!-- Header -->
+    <header class="glass rounded-3xl shadow-sm p-4 mb-6">
+      <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-2xl bg-blue-600 text-white grid place-items-center shadow-lg">
+            <i class="fa-solid fa-droplet text-xl"></i>
+          </div>
+
+          <div>
+            <h1 class="font-black text-xl tracking-tight">Paperhouse Inc.</h1>
+            <p class="text-xs text-slate-500">USDT faucet and rewards community</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <div id="userStatus" class="text-sm text-slate-500">
+            Not signed in
+          </div>
+
+          <button
+            id="logoutBtn"
+            class="hidden rounded-xl bg-slate-100 px-4 py-2 text-sm font-bold hover:bg-slate-200">
+            Logout
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Auth card -->
+    <div id="authCard" class="grid lg:grid-cols-2 gap-6 mb-6">
+
+      <div class="glass rounded-3xl shadow-sm p-6">
+        <div class="mb-5">
+          <span class="inline-flex rounded-full bg-blue-100 text-blue-700 px-3 py-1 text-xs font-bold">
+            Welcome
+          </span>
+
+          <h2 class="mt-3 text-2xl font-black">
+            Earn USDT by completing rewards
+          </h2>
+
+          <p class="mt-2 text-sm text-slate-500">
+            Register with your email and connect your FaucetPay email or wallet address.
+          </p>
+        </div>
+
+        <form id="registerForm" class="space-y-3">
+          <input
+            id="registerName"
+            required
+            placeholder="Your name"
+            class="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500" />
+
+          <input
+            id="registerEmail"
+            type="email"
+            required
+            placeholder="Email address"
+            class="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500" />
+
+          <input
+            id="registerPassword"
+            type="password"
+            minlength="6"
+            required
+            placeholder="Password, at least 6 characters"
+            class="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500" />
+
+          <input
+            id="faucetPayEmail"
+            type="email"
+            required
+            placeholder="FaucetPay email"
+            class="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500" />
+
+          <input
+            id="walletAddress"
+            required
+            placeholder="USDT wallet address"
+            class="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500" />
+
+          <button
+            class="w-full rounded-2xl bg-blue-600 py-3 font-black text-white hover:bg-blue-700">
+            Create account
+          </button>
+        </form>
+
+        <div id="authMessage" class="mt-4 text-sm"></div>
+      </div>
+
+      <div class="rounded-3xl bg-gradient-to-br from-blue-700 to-indigo-900 text-white p-6 shadow-xl">
+        <p class="text-blue-200 text-sm font-bold">Today’s faucet reward</p>
+        <div class="mt-3 text-5xl font-black">0.0012</div>
+        <div class="text-blue-200 font-bold">USDT per claim</div>
+
+        <div class="mt-8 grid grid-cols-2 gap-3">
+          <div class="rounded-2xl bg-white/10 p-4">
+            <p class="text-xs text-blue-200">Cooldown</p>
+            <p class="mt-1 font-black">3 minutes</p>
+          </div>
+
+          <div class="rounded-2xl bg-white/10 p-4">
+            <p class="text-xs text-blue-200">Daily limit</p>
+            <p class="mt-1 font-black">30 claims</p>
+          </div>
+        </div>
+
+        <div class="mt-6 rounded-2xl bg-white/10 p-4 text-sm text-blue-100">
+          <i class="fa-solid fa-shield-halved mr-2"></i>
+          Payments are processed securely through the Paperhouse backend.
+        </div>
+      </div>
+    </div>
+
+    <!-- Main app -->
+    <main id="mainApp" class="hidden">
+
+      <!-- Statistics -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="glass rounded-2xl p-4">
+          <p class="text-xs text-slate-500">Total users</p>
+          <p id="totalUsers" class="mt-1 text-2xl font-black">0</p>
+        </div>
+
+        <div class="glass rounded-2xl p-4">
+          <p class="text-xs text-slate-500">Total withdrawals</p>
+          <p id="totalWithdrawals" class="mt-1 text-2xl font-black">0</p>
+        </div>
+
+        <div class="glass rounded-2xl p-4">
+          <p class="text-xs text-slate-500">Today’s claims</p>
+          <p id="dailyClaims" class="mt-1 text-2xl font-black">0 / 30</p>
+        </div>
+
+        <div class="glass rounded-2xl p-4">
+          <p class="text-xs text-slate-500">Available reward</p>
+          <p id="balance" class="mt-1 text-2xl font-black text-blue-600">0.0000</p>
+        </div>
+      </div>
+
+      <div class="grid lg:grid-cols-3 gap-6">
+
+        <!-- Faucet -->
+        <div class="lg:col-span-2 space-y-6">
+
+          <div class="glass rounded-3xl shadow-sm p-6">
+            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+              <div>
+                <span class="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
+                  Zone <span id="zoneNumber" class="ml-1">1</span>
+                </span>
+
+                <h2 class="mt-3 text-2xl font-black">Complete today’s rewards</h2>
+
+                <p class="mt-2 text-sm text-slate-500">
+                  Watch 3 rewarded ads and 1 popup ad to unlock a claim.
+                </p>
+              </div>
+
+              <div class="rounded-2xl bg-blue-50 px-4 py-3 text-center">
+                <p class="text-xs text-blue-600 font-bold">Claim value</p>
+                <p class="text-xl font-black text-blue-700">0.0012 USDT</p>
+              </div>
+            </div>
+
+            <div class="mt-6">
+              <div class="flex justify-between text-sm font-bold">
+                <span>Reward progress</span>
+                <span id="progressText">0 / 4 ads</span>
+              </div>
+
+              <div class="mt-2 h-3 rounded-full bg-slate-100 overflow-hidden">
+                <div
+                  id="progressBar"
+                  class="progress-bar h-full w-0 rounded-full bg-blue-600">
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-6 grid sm:grid-cols-2 gap-3">
+              <button
+                id="rewardedBtn"
+                class="rounded-2xl bg-blue-600 px-5 py-3 font-black text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">
+                <i class="fa-solid fa-play mr-2"></i>
+                Watch rewarded ad
+              </button>
+
+              <button
+                id="popupBtn"
+                class="rounded-2xl bg-indigo-600 px-5 py-3 font-black text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
+                <i class="fa-solid fa-window-restore mr-2"></i>
+                Watch popup ad
+              </button>
+            </div>
+
+            <button
+              id="claimBtn"
+              disabled
+              class="mt-3 w-full rounded-2xl bg-emerald-600 px-5 py-4 font-black text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">
+              <i class="fa-solid fa-money-bill-transfer mr-2"></i>
+              Claim 0.0012 USDT
+            </button>
+
+            <p id="cooldownText" class="mt-4 text-center text-sm text-slate-500"></p>
+            <div id="faucetMessage" class="mt-3 text-center text-sm"></div>
+          </div>
+
+          <!-- Profile -->
+          <div class="glass rounded-3xl shadow-sm p-6">
+            <h3 class="text-lg font-black">Payment profile</h3>
+            <p class="mt-1 text-sm text-slate-500">
+              Make sure your FaucetPay details are correct before claiming.
+            </p>
+
+            <form id="profileForm" class="mt-5 grid md:grid-cols-2 gap-3">
+              <input
+                id="profileName"
+                required
+                placeholder="Your name"
+                class="rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500" />
+
+              <input
+                id="profileFaucetPay"
+                type="email"
+                required
+                placeholder="FaucetPay email"
+                class="rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500" />
+
+              <input
+                id="profileWallet"
+                required
+                placeholder="USDT wallet address"
+                class="md:col-span-2 rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500" />
+
+              <button
+                class="md:col-span-2 rounded-2xl bg-slate-900 py-3 font-black text-white hover:bg-slate-800">
+                Save payment details
+              </button>
+            </form>
+
+            <div id="profileMessage" class="mt-3 text-sm"></div>
+          </div>
+
+          <!-- Community chat -->
+          <div class="glass rounded-3xl shadow-sm p-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-lg font-black">Community chat</h3>
+                <p class="text-sm text-slate-500">Chat with other Paperhouse users.</p>
+              </div>
+
+              <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold">
+                General
+              </span>
+            </div>
+
+            <div
+              id="chatMessages"
+              class="mt-4 h-56 overflow-y-auto rounded-2xl bg-slate-50 p-3 space-y-2">
+            </div>
+
+            <form id="chatForm" class="mt-3 flex gap-2">
+              <input
+                id="chatInput"
+                required
+                maxlength="250"
+                placeholder="Write a message..."
+                class="min-w-0 flex-1 rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500" />
+
+              <button class="rounded-2xl bg-blue-600 px-5 text-white hover:bg-blue-700">
+                <i class="fa-solid fa-paper-plane"></i>
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Sidebar -->
+        <aside class="space-y-6">
+
+          <div class="glass rounded-3xl shadow-sm p-6">
+            <h3 class="text-lg font-black">Recent withdrawals</h3>
+            <div id="withdrawalList" class="mt-4 space-y-3">
+              <p class="text-sm text-slate-500">Loading records...</p>
+            </div>
+          </div>
+
+          <div class="glass rounded-3xl shadow-sm p-6">
+            <h3 class="text-lg font-black">Daily leaderboard</h3>
+            <div id="dailyLeaderboard" class="mt-4 space-y-3">
+              <p class="text-sm text-slate-500">Loading leaderboard...</p>
+            </div>
+          </div>
+
+          <div class="glass rounded-3xl shadow-sm p-6">
+            <h3 class="text-lg font-black">Weekly leaderboard</h3>
+            <div id="weeklyLeaderboard" class="mt-4 space-y-3">
+              <p class="text-sm text-slate-500">Loading leaderboard...</p>
+            </div>
+          </div>
+
+          <div class="rounded-3xl bg-slate-900 p-6 text-white">
+            <h3 class="font-black">Create a group</h3>
+            <p class="mt-2 text-sm text-slate-300">
+              Groups can support up to 300 members with private group chat.
+            </p>
+
+            <button
+              id="createGroupBtn"
+              class="mt-4 w-full rounded-2xl bg-white px-4 py-3 font-black text-slate-900 hover:bg-slate-100">
+              Create group
+            </button>
+          </div>
+
+        </aside>
+      </div>
+    </main>
+  </section>
+
+  <div
+    id="toast"
+    class="fixed bottom-5 left-1/2 hidden -translate-x-1/2 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-xl">
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
