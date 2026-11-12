@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07111f">
+  <title>Paperhouse Inc. — USDT Faucet</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { boxShadow: { glow: '0 0 35px rgba(34,211,238,.12)' } } }
+    };
+  </script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="//libtl.com/sdk.js" data-zone="10337853" data-sdk="show_10337853"></script>
+  <script src="//libtl.com/sdk.js" data-zone="10337795" data-sdk="show_10337795"></script>
+  <script src="//libtl.com/sdk.js" data-zone="10555663" data-sdk="show_10555663"></script>
+</head>
+<body class="min-h-screen bg-[#07111f] text-slate-100">
+  <header class="sticky top-0 z-30 border-b border-white/10 bg-[#07111f]/90 backdrop-blur-xl">
+    <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
+      <div class="flex items-center gap-3">
+        <div class="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-cyan-300 to-blue-600 text-xl font-black text-slate-950">P</div>
+        <div><h1 class="text-lg font-black sm:text-xl">Paperhouse Inc.</h1><p class="text-xs text-slate-400">USDT faucet community</p></div>
+      </div>
+      <div id="authStatus" class="rounded-full border border-white/10 px-3 py-1.5 text-xs text-slate-400">Connecting…</div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6">
+    <section class="relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/15 via-slate-900 to-blue-600/10 p-5 shadow-glow sm:p-8">
+      <div class="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-cyan-400/10 blur-3xl"></div>
+      <div class="relative grid gap-8 lg:grid-cols-[1fr_auto] lg:items-center">
+        <div><p class="mb-2 text-sm font-semibold uppercase tracking-[.2em] text-cyan-300">Daily faucet reward</p><h2 class="max-w-2xl text-3xl font-black tracking-tight sm:text-5xl">Earn small rewards.<br><span class="text-cyan-300">Build consistently.</span></h2><p class="mt-4 max-w-xl text-slate-300">Complete the required ads, wait for the cooldown, and claim your USDT reward directly through your linked FaucetPay email.</p></div>
+        <div class="rounded-3xl border border-white/10 bg-slate-950/50 p-6 text-center"><p class="text-sm text-slate-400">Per claim</p><p class="mt-1 text-4xl font-black text-emerald-300">0.0012</p><p class="text-sm font-bold text-emerald-200">USDT</p><p class="mt-3 text-xs text-slate-400">Maximum 30 claims per UTC day</p></div>
+      </div>
+    </section>
+
+    <section class="grid gap-5 lg:grid-cols-[1.4fr_.8fr]">
+      <div class="rounded-3xl border border-white/10 bg-slate-900/80 p-5 shadow-xl sm:p-6">
+        <div class="flex flex-wrap items-start justify-between gap-4"><div><h2 class="text-xl font-bold">Claim center</h2><p class="mt-1 text-sm text-slate-400">Today’s advertising zone: <b id="zoneName" class="text-cyan-300">Zone 1</b></p></div><div class="text-right"><p class="text-xs text-slate-400">Daily claims</p><p id="claimCount" class="text-2xl font-black">0 / 30</p></div></div>
+        <div class="mt-5 grid gap-3 sm:grid-cols-3"><div class="rounded-2xl bg-slate-800/80 p-4"><p class="text-xs text-slate-400">Rewarded ads</p><p id="rewardedCount" class="mt-1 text-xl font-bold">0 / 3</p></div><div class="rounded-2xl bg-slate-800/80 p-4"><p class="text-xs text-slate-400">Popup ad</p><p id="popupCount" class="mt-1 text-xl font-bold">0 / 1</p></div><div class="rounded-2xl bg-slate-800/80 p-4"><p class="text-xs text-slate-400">Cooldown</p><p id="cooldown" class="mt-1 text-xl font-bold text-emerald-300">Ready</p></div></div>
+        <div class="mt-5 grid gap-3 sm:grid-cols-3"><button id="rewardedBtn" class="rounded-2xl bg-cyan-400 px-4 py-3 font-bold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40">Watch rewarded ad</button><button id="popupBtn" class="rounded-2xl bg-violet-500 px-4 py-3 font-bold transition hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-40">Watch popup ad</button><button id="claimBtn" disabled class="rounded-2xl bg-emerald-400 px-4 py-3 font-bold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-40">Claim reward</button></div>
+        <div id="message" role="status" class="mt-4 min-h-5 text-sm text-slate-400"></div>
+      </div>
+
+      <div class="rounded-3xl border border-white/10 bg-slate-900/80 p-5 shadow-xl sm:p-6"><h2 class="text-xl font-bold">FaucetPay details</h2><p class="mt-1 text-sm text-slate-400">Use the email already connected to your FaucetPay account.</p><form id="profileForm" class="mt-5 space-y-3"><label class="block text-xs font-semibold text-slate-300" for="email">FaucetPay email</label><input id="email" type="email" autocomplete="email" required class="w-full rounded-2xl border border-white/10 bg-slate-800 px-4 py-3 outline-none transition focus:border-cyan-300" placeholder="you@example.com"><button class="w-full rounded-2xl bg-white px-4 py-3 font-bold text-slate-950 transition hover:bg-cyan-100">Save securely</button></form><p id="profileMessage" class="mt-3 text-xs text-slate-400"></p></div>
+    </section>
+
+    <section class="grid gap-4 sm:grid-cols-3"><div class="rounded-3xl border border-white/10 bg-slate-900/80 p-5"><p class="text-sm text-slate-400">Registered users</p><p id="totalUsers" class="mt-1 text-3xl font-black">—</p></div><div class="rounded-3xl border border-white/10 bg-slate-900/80 p-5"><p class="text-sm text-slate-400">Total withdrawn</p><p id="totalWithdrawn" class="mt-1 text-3xl font-black">—</p></div><div class="rounded-3xl border border-white/10 bg-slate-900/80 p-5"><p class="text-sm text-slate-400">Automatic ads</p><p class="mt-1 text-3xl font-black text-cyan-300">5 min</p></div></section>
+
+    <section class="grid gap-5 lg:grid-cols-2"><div class="rounded-3xl border border-white/10 bg-slate-900/80 p-5"><div class="flex items-center justify-between"><h2 class="text-xl font-bold">Leaderboard</h2><div class="flex gap-2"><button data-board="daily" class="boardBtn rounded-xl bg-cyan-400 px-3 py-2 text-xs font-bold text-slate-950">Daily</button><button data-board="weekly" class="boardBtn rounded-xl bg-slate-800 px-3 py-2 text-xs">Weekly</button></div></div><ol id="leaderboard" class="mt-4 space-y-2"></ol></div><div class="rounded-3xl border border-white/10 bg-slate-900/80 p-5"><h2 class="text-xl font-bold">Community chat</h2><div id="chatMessages" class="mt-4 h-56 space-y-2 overflow-y-auto rounded-2xl bg-slate-950 p-4 text-sm"></div><form id="chatForm" class="mt-3 flex gap-2"><input id="chatInput" required maxlength="300" class="min-w-0 flex-1 rounded-2xl border border-white/10 bg-slate-800 px-4 py-3 outline-none focus:border-cyan-300" placeholder="Write a respectful message…"><button class="rounded-2xl bg-cyan-400 px-4 font-bold text-slate-950">Send</button></form></div></section>
+
+    <section class="rounded-3xl border border-white/10 bg-slate-900/80 p-5"><div class="flex flex-wrap items-center justify-between gap-3"><div><h2 class="text-xl font-bold">Groups</h2><p class="text-sm text-slate-400">Create or join groups with a maximum of 300 members.</p></div><button id="createGroupBtn" class="rounded-2xl bg-violet-500 px-4 py-3 font-bold hover:bg-violet-400">Create group</button></div><div id="groupsList" class="mt-5 grid gap-3 md:grid-cols-2"></div><div id="groupChat" class="mt-5 hidden border-t border-white/10 pt-5"><h3 id="groupTitle" class="font-bold"></h3><div id="groupMessages" class="mt-3 h-44 overflow-y-auto rounded-2xl bg-slate-950 p-4 text-sm"></div><form id="groupForm" class="mt-3 flex gap-2"><input id="groupInput" required maxlength="300" class="min-w-0 flex-1 rounded-2xl bg-slate-800 px-4 py-3" placeholder="Message this group"><button class="rounded-2xl bg-violet-500 px-4 font-bold">Send</button></form></div></section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
